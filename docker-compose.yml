@@ -1,0 +1,9 @@
+version: '3.2'
+
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - '35425:5432'
+    environment:
+      POSTGRES_PASSWORD: nextjsdb

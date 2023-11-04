@@ -1,0 +1,17 @@
+import React from "react";
+
+import SideNav from "@ui/dashboard/sidenav";
+
+
+// This component is instantiated automatically by NextJS as the wrapper of the current active route
+// Furthermore, only the children will be re-rendered on navigation inside the current sub-tree
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col md:flex-row md:overflow-hidden">
+      <div className="w-full flex-none md:w-64">
+        <SideNav />
+      </div>
+      <div className="flex-grow p-6 md:overflow-y-auto md:p-12">{children}</div>
+    </div>
+  )
+}

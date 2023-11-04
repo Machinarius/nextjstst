@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-kysely"
+
+  output = "../app/lib"
+  fileName = "models.ts"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String @db.VarChar(255)
+  email     String @db.VarChar(255)
+  imageUrl  String @db.VarChar(255) @map("image_url")
+  invoices  Invoice[]
+
+  @@map("customers")
+}
+
+model Invoice {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customerId  String   @db.Uuid @map("customer_id")
+  amount      Int
+  /// @kyselyType('pending' | 'paid')
+  status      String   @db.VarChar(255)
+  date        DateTime @db.Date
+  customer    Customer @relation(fields: [customerId], references: [id])
+
+  @@map("invoices")
+}
+
+model RevenueSnapshot {
+  month   String @unique @db.VarChar(4)
+  revenue Int
+
+  @@map("revenue")
+}
+
+model User {
+  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name     String @db.VarChar(255)
+  email    String @unique
+  password String
+
+  @@map("users")
+}
