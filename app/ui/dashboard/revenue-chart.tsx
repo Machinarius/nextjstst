@@ -10,7 +10,6 @@ import { fetchRevenue } from '@/app/lib/data';
 // https://airbnb.io/visx/
 
 const chartHeight = 350;
-type Revenue = Awaited<ReturnType<typeof fetchRevenue>>[number];
 
 export default async function RevenueChart() {
   const revenue = await fetchRevenue();

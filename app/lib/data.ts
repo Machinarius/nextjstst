@@ -1,7 +1,7 @@
 import { formatCurrency } from "./utils";
 import { DB } from "./models";
 import { Pool } from "pg";
-import { ExpressionBuilder, Kysely, PostgresDialect, sql } from "kysely";
+import { ExpressionBuilder, Kysely, PostgresDialect } from "kysely";
 
 const dialect = new PostgresDialect({
   pool: new Pool({
