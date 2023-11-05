@@ -2,6 +2,8 @@ import { formatCurrency } from "./utils";
 import { DB } from "./models";
 import { Pool } from "pg";
 import { ExpressionBuilder, Kysely, PostgresDialect } from "kysely";
+import { z } from "zod";
+import { InvoiceCreationSchema } from "./schemas";
 
 const dialect = new PostgresDialect({
   pool: new Pool({
@@ -267,5 +269,22 @@ export async function getUser(email: string) {
   } catch (error) {
     console.error("Failed to fetch user:", error);
     throw new Error("Failed to fetch user.");
+  }
+}
+
+export async function saveInvoice(data: z.infer<typeof InvoiceCreationSchema>) {
+  try {
+    await db
+      .insertInto('invoices')
+      .values({
+        amount: data.amount,
+        customer_id: data.customerId,
+        status: data.status,
+        date: new Date()
+      })
+      .execute();
+  } catch (error) {
+    console.error("Failed to insert a new invoice: ", error);
+    throw error;
   }
 }
