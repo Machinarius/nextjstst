@@ -3,7 +3,7 @@ import { DB } from "./models";
 import { Pool } from "pg";
 import { ExpressionBuilder, Kysely, PostgresDialect } from "kysely";
 import { z } from "zod";
-import { InvoiceCreationSchema } from "./schemas";
+import { InvoiceCreationSchema, InvoiceUpdateSchema } from "./schemas";
 
 const dialect = new PostgresDialect({
   pool: new Pool({
@@ -172,13 +172,14 @@ export async function fetchInvoicesPages(query: string) {
   }
 }
 
+export type InvoiceForm = Awaited<ReturnType<typeof fetchInvoiceById>>;
 export async function fetchInvoiceById(id: string) {
   try {
     const data = await db
       .selectFrom("invoices")
       .select([
         "invoices.id",
-        "invoices.customer_id",
+        "invoices.customer_id as customerId",
         "invoices.amount",
         "invoices.status",
       ])
@@ -194,6 +195,7 @@ export async function fetchInvoiceById(id: string) {
     return invoice;
   } catch (error) {
     console.error("Database Error:", error);
+    throw error;
   }
 }
 
@@ -272,7 +274,7 @@ export async function getUser(email: string) {
   }
 }
 
-export async function saveInvoice(data: z.infer<typeof InvoiceCreationSchema>) {
+export async function saveNewInvoiceToDb(data: z.infer<typeof InvoiceCreationSchema>) {
   try {
     await db
       .insertInto('invoices')
@@ -285,6 +287,23 @@ export async function saveInvoice(data: z.infer<typeof InvoiceCreationSchema>) {
       .execute();
   } catch (error) {
     console.error("Failed to insert a new invoice: ", error);
+    throw error;
+  }
+}
+
+export async function updateInvoiceInDb(data: z.infer<typeof InvoiceUpdateSchema>) {
+  try {
+    await db
+      .updateTable('invoices')
+      .set({
+        amount: data.amount,
+        customer_id: data.customerId,
+        status: data.status,
+      })
+      .where('id', '=', data.id)
+      .execute();
+  } catch (error) {
+    console.error("Failed to update an invoice: ", error);
     throw error;
   }
 }

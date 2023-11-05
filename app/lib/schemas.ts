@@ -12,3 +12,7 @@ export const InvoiceSchema = z.object({
 
 export const InvoiceCreationSchema = InvoiceSchema
   .omit({ id: true , date: true });
+
+export const InvoiceUpdateSchema = InvoiceSchema
+  .omit({ date: true });
+  

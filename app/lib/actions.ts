@@ -6,8 +6,8 @@
 // called directly! NextJS generates a POST API endpoint for
 // the function.
 
-import { InvoiceCreationSchema } from "./schemas";
-import { saveInvoice } from "./data";
+import { InvoiceCreationSchema, InvoiceUpdateSchema } from "./schemas";
+import { saveNewInvoiceToDb, updateInvoiceInDb } from "./data";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -21,7 +21,7 @@ export async function createInvoice(formData: FormData) {
 
   // NextJS folks recommend representing the value in cents to avoid JS
   // floating-point shenanigans
-  await saveInvoice({
+  await saveNewInvoiceToDb({
     ...validationResult.data,
     amount: validationResult.data.amount * 100
   });
@@ -32,3 +32,23 @@ export async function createInvoice(formData: FormData) {
   redirect('/dashboard/invoices');
 }
 
+export async function updateInvoice(formData: FormData) {
+  const rawFormData = Object.fromEntries(formData.entries());
+  var validationResult = InvoiceUpdateSchema.safeParse(rawFormData);
+
+  if (!validationResult.success) {
+    throw new Error("Validations failed");
+  }
+
+  // NextJS folks recommend representing the value in cents to avoid JS
+  // floating-point shenanigans
+  await updateInvoiceInDb({
+    ...validationResult.data,
+    amount: validationResult.data.amount * 100
+  });
+
+  // Invalidate the built-in cache for the route _before_ redirecting
+  // the user back to the invoices list page.
+  revalidatePath('/dashboard/invoices');
+  redirect('/dashboard/invoices');
+}
