@@ -6,6 +6,10 @@ import CardWrapper, { Card } from "@ui/dashboard/cards";
 import { CardsSkeleton, LatestInvoicesSkeleton, RevenueChartSkeleton } from "@/app/ui/skeletons";
 
 // The page.tsx file is automatically rendered by NextJS as the content of the route
+
+// The suspense boundaries allow NextJS to reason about this page and figure out that this component
+// itself can be 100% static. That means that DashboardPage will be rendered and cached, but
+// the suspended components must be SSR'd every single time.
 export default async function DashboardPage() {
   return (
     <main>
