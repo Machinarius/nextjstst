@@ -106,13 +106,16 @@ export async function fetchCardData() {
 }
 
 function personRoughlyMatchesQuery(eb: ExpressionBuilder<DB, 'customers' | 'invoices'>, query: string) {
+  if (query == 'paid' || query == 'pending') {
+    return eb('invoices.status', '=' , query);
+  }
+
   return eb.or([
     eb("customers.name", "ilike", `%${query}%`),
     eb("customers.email", "ilike", `%${query}%`),
     // Not sure if I want to do this
     //eb('invoices.amount', 'ilike', `%${query}%`),
     //eb('invoices.date', 'ilike', `%${query}%`),
-    //eb('invoices.status', 'ilike', `%${query}%`),
   ]);
 }
 
