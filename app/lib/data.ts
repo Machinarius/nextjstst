@@ -1,12 +1,5 @@
-import {
-  CustomerField,
-  CustomerRow,
-  InvoiceForm,
-  InvoiceRow,
-  LatestInvoiceRaw,
-} from "./definitions";
 import { formatCurrency } from "./utils";
-import { DB, Invoice } from "./models";
+import { DB } from "./models";
 import { Pool } from "pg";
 import { ExpressionBuilder, Kysely, PostgresDialect, sql } from "kysely";
 
@@ -24,6 +17,7 @@ const db = new Kysely<DB>({
   dialect,
 });
 
+export type RevenueItem = Awaited<ReturnType<typeof fetchRevenue>>[number];
 export async function fetchRevenue() {
   // Add noStore() here prevent the response from being cached.
   // This is equivalent to in fetch(..., {cache: 'no-store'}).
@@ -46,17 +40,18 @@ export async function fetchRevenue() {
   }
 }
 
+export type InvoiceOverviewItem = Awaited<ReturnType<typeof fetchLatestInvoices>>[number];
 export async function fetchLatestInvoices() {
   try {
     const data = await db
       .selectFrom("invoices")
       .innerJoin("customers", "customer_id", "invoices.customer_id")
       .select([
-        "invoices.amount",
-        "customers.name as customer_name",
-        "customers.image_url as customer_image_url",
-        "customers.email as customer_email",
         "invoices.id",
+        "invoices.amount",
+        "customers.name as customerName",
+        "customers.image_url as customerImageUrl",
+        "customers.email as customerEmail",
       ])
       .orderBy("invoices.date desc")
       .limit(5)
