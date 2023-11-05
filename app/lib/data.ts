@@ -8,7 +8,7 @@ import {
 import { formatCurrency } from "./utils";
 import { DB, Invoice } from "./models";
 import { Pool } from "pg";
-import { Kysely, PostgresDialect, sql } from "kysely";
+import { ExpressionBuilder, Kysely, PostgresDialect, sql } from "kysely";
 
 const dialect = new PostgresDialect({
   pool: new Pool({
@@ -85,28 +85,39 @@ export async function fetchCardData() {
           .as("invoiceCount"),
         selectFrom("invoices")
           .select(({ fn }) => [
-            fn.sum<number>("amount").as("paidInvoiceAmount"),
+            fn.sum<number>("amount").as("paidInvoicesTotal"),
           ])
           .where("status", "=", "paid")
-          .as("paidInvoiceAmount"),
+          .as("paidInvoicesTotal"),
         selectFrom("invoices")
           .select(({ fn }) => [
-            fn.sum<number>("amount").as("pendingInvoiceAmount"),
+            fn.sum<number>("amount").as("pendingInvoicesTotal"),
           ])
           .where("status", "=", "pending")
-          .as("pendingInvoiceAmount"),
+          .as("pendingInvoicesTotal"),
       ])
       .executeTakeFirst();
     return {
       numberOfCustomers: data?.customerCount || 0,
       numberOfInvoices: data?.invoiceCount || 0,
-      totalPaidInvoices: data?.paidInvoiceAmount || 0,
-      totalPendingInvoices: data?.pendingInvoiceAmount || 0,
+      totalPaidInvoices: data?.paidInvoicesTotal || 0,
+      totalPendingInvoices: data?.pendingInvoicesTotal || 0,
     };
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to card data.");
   }
+}
+
+function personRoughlyMatchesQuery(eb: ExpressionBuilder<DB, 'customers' | 'invoices'>, query: string) {
+  return eb.or([
+    eb("customers.name", "ilike", `%${query}%`),
+    eb("customers.email", "ilike", `%${query}%`),
+    // Not sure if I want to do this
+    //eb('invoices.amount', 'ilike', `%${query}%`),
+    //eb('invoices.date', 'ilike', `%${query}%`),
+    //eb('invoices.status', 'ilike', `%${query}%`),
+  ]);
 }
 
 const ITEMS_PER_PAGE = 6;
@@ -129,16 +140,7 @@ export async function fetchFilteredInvoices(
         "customers.email",
         "customers.image_url",
       ])
-      .where(({ eb, or }) =>
-        or([
-          eb("customers.name", "ilike", `%${query}%`),
-          eb("customers.email", "ilike", `%${query}%`),
-          // Not sure if I want to do this
-          //eb('invoices.amount', 'ilike', `%${query}%`),
-          //eb('invoices.date', 'ilike', `%${query}%`),
-          //eb('invoices.status', 'ilike', `%${query}%`),
-        ])
-      )
+      .where(({ eb }) => personRoughlyMatchesQuery(eb, query))
       .limit(ITEMS_PER_PAGE)
       .offset(offset)
       .execute();
@@ -156,16 +158,7 @@ export async function fetchInvoicesPages(query: string) {
       .selectFrom("invoices")
       .innerJoin("customers", "invoices.customer_id", "customers.id")
       .select(({ fn }) => fn.countAll<number>().as("filteredInvoicesCount"))
-      .where(({ eb, or }) =>
-        or([
-          eb("customers.name", "ilike", `%${query}%`),
-          eb("customers.email", "ilike", `%${query}%`),
-          // Not sure if I want to do this
-          //eb('invoices.amount', 'ilike', `%${query}%`),
-          //eb('invoices.date', 'ilike', `%${query}%`),
-          //eb('invoices.status', 'ilike', `%${query}%`),
-        ])
-      )
+      .where(({ eb }) => personRoughlyMatchesQuery(eb, query))
       .executeTakeFirst();
 
     const totalPages = Math.ceil(
@@ -205,16 +198,13 @@ export async function fetchInvoiceById(id: string) {
 
 export async function fetchCustomers() {
   try {
-    const data = await sql<CustomerField>`
-      SELECT
-        id,
-        name
-      FROM customers
-      ORDER BY name ASC
-    `;
+    const data = await db
+      .selectFrom("customers")
+      .select(["id", "name"])
+      .orderBy("name asc")
+      .execute();
 
-    const customers = data.rows;
-    return customers;
+    return data;
   } catch (err) {
     console.error("Database Error:", err);
     throw new Error("Failed to fetch all customers.");
@@ -223,28 +213,41 @@ export async function fetchCustomers() {
 
 export async function fetchFilteredCustomers(query: string) {
   try {
-    const data = await sql<CustomerRow>`
-		SELECT
-		  customers.id,
-		  customers.name,
-		  customers.email,
-		  customers.image_url,
-		  COUNT(invoices.id) AS total_invoices,
-		  SUM(CASE WHEN invoices.status = 'pending' THEN invoices.amount ELSE 0 END) AS total_pending,
-		  SUM(CASE WHEN invoices.status = 'paid' THEN invoices.amount ELSE 0 END) AS total_paid
-		FROM customers
-		LEFT JOIN invoices ON customers.id = invoices.customer_id
-		WHERE
-		  customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`}
-		GROUP BY customers.id, customers.name, customers.email, customers.image_url
-		ORDER BY customers.name ASC
-	  `;
+    const data = await db.selectFrom("customers")
+      .leftJoin("invoices", "customers.id", "invoices.customer_id")
+      .select(({ eb, fn }) => [
+        'customers.id',
+        'customers.name',
+        'customers.email',
+        'customers.image_url',
+        fn.count<number>('invoices.id').as('invoiceCount'),
+        fn.sum<number>(
+          eb.case()
+            .when('invoices.status', '=', 'pending')
+            .then(db.selectFrom('invoices').select('amount'))
+            .else(0)
+            .end()
+        ).as('pendingInvoicesTotal'),
+        fn.sum<number>(
+          eb.case()
+            .when('invoices.status', '=', 'paid')
+            .then(db.selectFrom('invoices').select('amount'))
+            .else(0)
+            .end()
+        ).as('paidInvoicesTotal')
+      ])
+      .where(({ eb, or }) => or([
+        eb('customers.name', 'ilike', `%${query}%`),
+        eb('customers.email', 'ilike', `%${query}%`)
+      ]))
+      .groupBy(['customers.id', 'customers.name', 'customers.email', 'customers.image_url'])
+      .orderBy('customers.name asc')
+      .execute();
 
-    const customers = data.rows.map((customer) => ({
+    const customers = data.map((customer) => ({
       ...customer,
-      total_pending: formatCurrency(customer.total_pending),
-      total_paid: formatCurrency(customer.total_paid),
+      pendingInvoicesTotal: formatCurrency(customer.pendingInvoicesTotal || 0),
+      paidInvoicesTotal: formatCurrency(customer.paidInvoicesTotal || 0),
     }));
 
     return customers;
@@ -256,8 +259,12 @@ export async function fetchFilteredCustomers(query: string) {
 
 export async function getUser(email: string) {
   try {
-    const user = await sql`SELECT * from USERS where email=${email}`;
-    return user.rows[0] as User;
+    const user = await db
+      .selectFrom("users")
+      .selectAll()
+      .where(({ eb }) => eb("email", "=", email))
+      .executeTakeFirstOrThrow();
+    return user;
   } catch (error) {
     console.error("Failed to fetch user:", error);
     throw new Error("Failed to fetch user.");

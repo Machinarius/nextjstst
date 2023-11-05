@@ -7,3 +7,4 @@ services:
       - '35425:5432'
     environment:
       POSTGRES_PASSWORD: nextjsdb
+      POSTGRES_DB: nextjstest
