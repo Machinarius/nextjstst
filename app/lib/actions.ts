@@ -6,8 +6,8 @@
 // called directly! NextJS generates a POST API endpoint for
 // the function.
 
-import { InvoiceCreationSchema, InvoiceUpdateSchema } from "./schemas";
-import { saveNewInvoiceToDb, updateInvoiceInDb } from "./data";
+import { InvoiceCreationSchema, InvoiceDeletionSchema, InvoiceUpdateSchema } from "./schemas";
+import { deleteInvoiceInDb, saveNewInvoiceToDb, updateInvoiceInDb } from "./data";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -46,6 +46,22 @@ export async function updateInvoice(formData: FormData) {
     ...validationResult.data,
     amount: validationResult.data.amount * 100
   });
+
+  // Invalidate the built-in cache for the route _before_ redirecting
+  // the user back to the invoices list page.
+  revalidatePath('/dashboard/invoices');
+  redirect('/dashboard/invoices');
+}
+
+export async function deleteInvoice(formData: FormData) {
+  const rawFormData = Object.fromEntries(formData.entries());
+  var validationResult = InvoiceDeletionSchema.safeParse(rawFormData);
+
+  if (!validationResult.success) {
+    throw new Error("Validations failed");
+  }
+
+  await deleteInvoiceInDb((validationResult.data));
 
   // Invalidate the built-in cache for the route _before_ redirecting
   // the user back to the invoices list page.

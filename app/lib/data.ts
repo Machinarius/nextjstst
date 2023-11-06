@@ -3,7 +3,7 @@ import { DB } from "./models";
 import { Pool } from "pg";
 import { ExpressionBuilder, Kysely, PostgresDialect } from "kysely";
 import { z } from "zod";
-import { InvoiceCreationSchema, InvoiceUpdateSchema } from "./schemas";
+import { InvoiceCreationSchema, InvoiceDeletionSchema, InvoiceUpdateSchema } from "./schemas";
 
 const dialect = new PostgresDialect({
   pool: new Pool({
@@ -304,6 +304,18 @@ export async function updateInvoiceInDb(data: z.infer<typeof InvoiceUpdateSchema
       .execute();
   } catch (error) {
     console.error("Failed to update an invoice: ", error);
+    throw error;
+  }
+}
+
+export async function deleteInvoiceInDb(data: z.infer<typeof InvoiceDeletionSchema>) {
+  try {
+    await db
+      .deleteFrom('invoices')
+      .where('id', '=', data.id)
+      .execute();
+  } catch (error) {
+    console.error('Failed to delete an invoice from the DB', error);
     throw error;
   }
 }

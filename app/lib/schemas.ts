@@ -16,3 +16,5 @@ export const InvoiceCreationSchema = InvoiceSchema
 export const InvoiceUpdateSchema = InvoiceSchema
   .omit({ date: true });
   
+export const InvoiceDeletionSchema = InvoiceSchema
+  .pick({ id: true });
