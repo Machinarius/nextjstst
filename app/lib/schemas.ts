@@ -11,13 +11,16 @@ export const InvoiceSchema = z.object({
     .transform(value => value * 100),
   status: z.enum(['paid', 'pending']),
   date: z.string().datetime()
-});
+}).strict();
 
 export const InvoiceCreationSchema = InvoiceSchema
-  .omit({ id: true , date: true });
+  .omit({ id: true , date: true })
+  .strict();
 
 export const InvoiceUpdateSchema = InvoiceSchema
-  .omit({ date: true });
+  .omit({ date: true })
+  .strict();
   
 export const InvoiceDeletionSchema = InvoiceSchema
-  .pick({ id: true });
+  .pick({ id: true })
+  .strict();
