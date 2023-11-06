@@ -10,61 +10,36 @@ import { InvoiceCreationSchema, InvoiceDeletionSchema, InvoiceUpdateSchema } fro
 import { deleteInvoiceInDb, saveNewInvoiceToDb, updateInvoiceInDb } from "./data";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { ZodType, z } from "zod";
 
-export async function createInvoice(formData: FormData) {
+async function createInputHandler<TSchema extends ZodType>(
+  formData: FormData,
+  schema: TSchema,
+  dbHandler: (data: z.infer<TSchema>) => Promise<void>  
+) {
   const rawFormData = Object.fromEntries(formData.entries());
-  var validationResult = InvoiceCreationSchema.safeParse(rawFormData);
+  var validationResult = schema.safeParse(rawFormData);
 
   if (!validationResult.success) {
     throw new Error("Validations failed");
   }
 
-  // NextJS folks recommend representing the value in cents to avoid JS
-  // floating-point shenanigans
-  await saveNewInvoiceToDb({
-    ...validationResult.data,
-    amount: validationResult.data.amount * 100
-  });
+  await dbHandler(validationResult.data);
 
   // Invalidate the built-in cache for the route _before_ redirecting
   // the user back to the invoices list page.
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
+}
+
+export async function createInvoice(formData: FormData) {
+  return createInputHandler(formData, InvoiceCreationSchema, saveNewInvoiceToDb);
 }
 
 export async function updateInvoice(formData: FormData) {
-  const rawFormData = Object.fromEntries(formData.entries());
-  var validationResult = InvoiceUpdateSchema.safeParse(rawFormData);
-
-  if (!validationResult.success) {
-    throw new Error("Validations failed");
-  }
-
-  // NextJS folks recommend representing the value in cents to avoid JS
-  // floating-point shenanigans
-  await updateInvoiceInDb({
-    ...validationResult.data,
-    amount: validationResult.data.amount * 100
-  });
-
-  // Invalidate the built-in cache for the route _before_ redirecting
-  // the user back to the invoices list page.
-  revalidatePath('/dashboard/invoices');
-  redirect('/dashboard/invoices');
+  return createInputHandler(formData, InvoiceUpdateSchema, updateInvoiceInDb);
 }
 
 export async function deleteInvoice(formData: FormData) {
-  const rawFormData = Object.fromEntries(formData.entries());
-  var validationResult = InvoiceDeletionSchema.safeParse(rawFormData);
-
-  if (!validationResult.success) {
-    throw new Error("Validations failed");
-  }
-
-  await deleteInvoiceInDb((validationResult.data));
-
-  // Invalidate the built-in cache for the route _before_ redirecting
-  // the user back to the invoices list page.
-  revalidatePath('/dashboard/invoices');
-  redirect('/dashboard/invoices');
+  return createInputHandler(formData, InvoiceDeletionSchema, deleteInvoiceInDb);
 }
